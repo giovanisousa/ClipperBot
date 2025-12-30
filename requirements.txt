@@ -1,0 +1,20 @@
+# Core Dependencies - Branch 01 (POC)
+yt-dlp>=2023.12.30
+faster-whisper>=0.10.0
+ffmpeg-python>=0.2.0
+librosa>=0.10.1
+pydub>=0.25.1
+numpy>=1.24.0
+soundfile>=0.12.1
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.66.0
+
+# Future Dependencies (Commented for now)
+# customtkinter>=5.2.0  # Branch 02: GUI
+# PyQt6>=6.6.0          # Alternative GUI
+# fastapi>=0.109.0      # Branch 04: Backend API
+# pyjwt>=2.8.0          # Branch 04: Auth
+# opencv-python>=4.9.0  # Branch 05: Face tracking
+# mediapipe>=0.10.9     # Branch 05: Face detection

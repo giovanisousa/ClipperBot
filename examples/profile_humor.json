@@ -1,0 +1,45 @@
+{
+  "name": "Perfil Comédia/Humor",
+  "description": "Configuração otimizada para capturar momentos engraçados e risadas",
+  "version": "1.0",
+  "settings": {
+    "keywords_climax": [
+      "kkk",
+      "haha",
+      "risada",
+      "engraçado",
+      "hilário",
+      "piada",
+      "zoeira",
+      "meme",
+      "brincadeira",
+      "cara",
+      "maluco",
+      "absurdo"
+    ],
+    "keywords_ignore": [
+      "patrocinador",
+      "anúncio",
+      "inscreva-se"
+    ],
+    "audio_analysis": {
+      "min_volume_db": -8.0,
+      "enable_acoustic": true,
+      "sample_window": 4
+    },
+    "cut_settings": {
+      "min_duration": 20,
+      "max_duration": 60,
+      "pre_roll": 3,
+      "post_roll": 3
+    },
+    "transcription": {
+      "model_size": "small",
+      "language": "pt"
+    },
+    "output": {
+      "max_clips": 10,
+      "prefix": "humor"
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "name": "Perfil Flow Podcast",
+  "description": "Configuração para cortes de podcasts longos e entrevistas",
+  "version": "1.0",
+  "settings": {
+    "keywords_climax": [
+      "incrível",
+      "surpreendente",
+      "polêmico",
+      "controverso",
+      "sinceramente",
+      "verdade",
+      "mentira",
+      "revelação",
+      "história",
+      "experiência",
+      "momento",
+      "situação"
+    ],
+    "keywords_ignore": [
+      "patrocinador",
+      "patrocínio",
+      "inscreva-se",
+      "cortes",
+      "canal",
+      "rede social"
+    ],
+    "audio_analysis": {
+      "min_volume_db": -12.0,
+      "enable_acoustic": true,
+      "sample_window": 7
+    },
+    "cut_settings": {
+      "min_duration": 45,
+      "max_duration": 120,
+      "pre_roll": 7,
+      "post_roll": 7
+    },
+    "transcription": {
+      "model_size": "small",
+      "language": "pt"
+    },
+    "output": {
+      "max_clips": 7,
+      "prefix": "flow"
+    }
+  }
+}

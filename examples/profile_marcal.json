@@ -1,0 +1,49 @@
+{
+  "name": "Perfil Pablo Marçal",
+  "description": "Configuração otimizada para cortes de conteúdo motivacional e negócios",
+  "version": "1.0",
+  "settings": {
+    "keywords_climax": [
+      "milhão",
+      "bilhão",
+      "segredo",
+      "atenção",
+      "importante",
+      "revelação",
+      "estratégia",
+      "fórmula",
+      "sucesso",
+      "resultado",
+      "dinheiro",
+      "investimento"
+    ],
+    "keywords_ignore": [
+      "patrocinador",
+      "patrocínio",
+      "inscreva-se",
+      "like",
+      "comentário",
+      "anúncio",
+      "propaganda"
+    ],
+    "audio_analysis": {
+      "min_volume_db": -10.0,
+      "enable_acoustic": true,
+      "sample_window": 5
+    },
+    "cut_settings": {
+      "min_duration": 30,
+      "max_duration": 90,
+      "pre_roll": 5,
+      "post_roll": 5
+    },
+    "transcription": {
+      "model_size": "small",
+      "language": "pt"
+    },
+    "output": {
+      "max_clips": 5,
+      "prefix": "marçal"
+    }
+  }
+}
