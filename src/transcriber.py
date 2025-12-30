@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from faster_whisper import WhisperModel
-import torch
+from src.cache import TranscriptionCache
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,7 +22,8 @@ class AudioTranscriber:
         self, 
         model_size: str = "small",
         device: str = "auto",
-        compute_type: str = "auto"
+        compute_type: str = "auto",
+        use_cache: bool = True
     ):
         """
         Args:
@@ -32,12 +33,23 @@ class AudioTranscriber:
                        - medium: mais preciso, mais lento
             device: "cpu", "cuda" ou "auto" (detecta automaticamente)
             compute_type: "int8", "float16" ou "auto"
+            use_cache: Se True, usa cache de transcrições (economiza tempo)
         """
         self.model_size = model_size
+        self.use_cache = use_cache
+        
+        if use_cache:
+            self.cache = TranscriptionCache()
+        else:
+            self.cache = None
         
         # Detectar dispositivo automaticamente
         if device == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            try:
+                import torch
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+            except ImportError:
+                device = "cpu"
             logger.info(f"Dispositivo detectado: {device}")
         
         # Otimizar compute_type baseado no dispositivo
@@ -49,14 +61,6 @@ class AudioTranscriber:
         try:
             self.model = WhisperModel(
                 model_size, 
-                device=device, 
-                compute_type=compute_type
-            )
-            logger.info("Modelo carregado com sucesso!")
-        except Exception as e:
-            logger.error(f"Erro ao carregar modelo: {e}")
-            raise
-    
     def transcribe(
         self, 
         audio_path: str,
@@ -72,23 +76,18 @@ class AudioTranscriber:
             word_timestamps: Se True, retorna timestamp de cada palavra
             
         Returns:
-            Lista de segmentos com texto e timestamps:
-            [
-                {
-                    'start': 0.0,
-                    'end': 5.2,
-                    'text': 'Olá, bem-vindo ao podcast',
-                    'words': [
-                        {'word': 'Olá', 'start': 0.0, 'end': 0.5},
-                        ...
-                    ]
-                },
-                ...
-            ]
+            Lista de segmentos com texto e timestamps
         """
         if not Path(audio_path).exists():
             logger.error(f"Arquivo não encontrado: {audio_path}")
             return None
+        
+        # Verificar cache
+        if self.cache:
+            cached = self.cache.get(audio_path, self.model_size, language)
+            if cached:
+                logger.info("⚡ Usando transcrição do cache (economia de tempo!)")
+                return cached
         
         try:
             logger.info(f"Transcrevendo: {audio_path}")
@@ -122,6 +121,19 @@ class AudioTranscriber:
                         }
                         for word in segment.words
                     ]
+                
+                transcription.append(segment_dict)
+                
+                # Log de progresso
+                logger.debug(f"[{segment.start:.2f}s - {segment.end:.2f}s] {segment.text.strip()}")
+            
+            logger.info(f"Transcrição concluída: {len(transcription)} segmentos")
+            
+            # Salvar no cache
+            if self.cache:
+                self.cache.set(audio_path, transcription, self.model_size, language)
+            
+            return transcription
                 
                 transcription.append(segment_dict)
                 

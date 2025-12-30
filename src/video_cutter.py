@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 import ffmpeg
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -120,7 +121,9 @@ class VideoCutter:
         self,
         input_video: str,
         cut_points: List[Dict],
-        prefix: str = "clip"
+        prefix: str = "clip",
+        parallel: bool = True,
+        max_workers: int = 3
     ) -> List[str]:
         """
         Corta múltiplos segmentos de um vídeo
@@ -129,10 +132,16 @@ class VideoCutter:
             input_video: Caminho do vídeo original
             cut_points: Lista de dicionários com 'start', 'end' e opcionalmente 'reason'
             prefix: Prefixo para os nomes dos arquivos
+            parallel: Se True, processa cortes em paralelo (mais rápido)
+            max_workers: Número máximo de processos paralelos (padrão: 3)
             
         Returns:
             Lista de caminhos dos clipes gerados
         """
+        if parallel and len(cut_points) > 1:
+            return self._cut_parallel(input_video, cut_points, prefix, max_workers)
+        
+        # Processamento sequencial (original)
         output_files = []
         
         for i, cut_point in enumerate(cut_points, 1):
@@ -158,6 +167,46 @@ class VideoCutter:
                 output_files.append(output_file)
         
         logger.info(f"Concluído! {len(output_files)}/{len(cut_points)} clipes gerados")
+        return output_files
+    
+    def _cut_parallel(self, input_video: str, cut_points: List[Dict], prefix: str, max_workers: int) -> List[str]:
+        """
+        Corta múltiplos segmentos em paralelo usando ThreadPoolExecutor
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        logger.info(f"🚀 Modo paralelo: processando {len(cut_points)} cortes com {max_workers} workers")
+        
+        output_files = []
+        
+        def cut_single(args):
+            i, cut_point = args
+            start = cut_point['start']
+            end = cut_point['end']
+            reason = cut_point.get('reason', 'unknown')
+            
+            reason_clean = self._sanitize_filename(reason)
+            filename = f"{prefix}_{i:02d}_{reason_clean}.mp4"
+            
+            logger.info(f"⚙️ Processando corte {i}/{len(cut_points)}: {reason}")
+            
+            return self.cut_video(
+                input_video=input_video,
+                start_time=start,
+                end_time=end,
+                output_filename=filename,
+                reencode=False
+            )
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(cut_single, (i, cp)): i for i, cp in enumerate(cut_points, 1)}
+            
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    output_files.append(result)
+        
+        logger.info(f"✅ Concluído! {len(output_files)}/{len(cut_points)} clipes gerados em paralelo")
         return output_files
     
     def _sanitize_filename(self, filename: str, max_length: int = 50) -> str:

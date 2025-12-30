@@ -95,13 +95,14 @@ class ClimaxAnalyzer:
         
         return climax_moments
     
-    def analyze_acoustic(self, audio_path: str, sample_window: int = 5) -> List[Dict]:
+    def analyze_acoustic(self, audio_path: str, sample_window: int = 5, fast_mode: bool = True) -> List[Dict]:
         """
         Analisa o áudio buscando picos de volume e energia
         
         Args:
             audio_path: Caminho do arquivo de áudio
             sample_window: Janela de análise em segundos
+            fast_mode: Se True, usa downsampling para análise mais rápida
             
         Returns:
             Lista de momentos com alta energia acústica
@@ -109,8 +110,9 @@ class ClimaxAnalyzer:
         try:
             logger.info(f"Analisando áudio: {audio_path}")
             
-            # Carregar áudio com librosa
-            y, sr = librosa.load(audio_path, sr=None)
+            # Carregar áudio com librosa (downsampling para 8kHz se fast_mode)
+            target_sr = 8000 if fast_mode else None  # 8kHz é suficiente para análise de volume
+            y, sr = librosa.load(audio_path, sr=target_sr)
             duration = librosa.get_duration(y=y, sr=sr)
             
             # Calcular energia RMS (Root Mean Square) - indica volume

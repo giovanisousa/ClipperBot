@@ -130,8 +130,38 @@ Exemplos de uso:
         action='store_true',
         help='Baixar apenas áudio (mais rápido para testes)'
     )
+    parser.add_argument(
+        '--fast',
+        action='store_true',
+        help='⚡ Modo rápido: ativa cache, processamento paralelo e downsampling (RECOMENDADO)'
+    )
+    parser.add_argument(
+        '--no-cache',
+        action='store_true',
+        help='Desabilita cache de transcrições (força re-processamento)'
+    )
+    parser.add_argument(
+        '--parallel-workers',
+        type=int,
+        default=3,
+        help='Número de cortes paralelos (padrão: 3, use 1 para sequencial)'
+    )
     
     args = parser.parse_args()
+    
+    # Aplicar otimizações do modo rápido
+    if args.fast:
+        logger.info("⚡ MODO RÁPIDO ATIVADO")
+        logger.info("  ✓ Cache de transcrições: ON")
+        logger.info("  ✓ Processamento paralelo: ON")
+        logger.info("  ✓ Downsampling de áudio: ON")
+        use_cache = True
+        parallel_cuts = True
+        fast_audio = True
+    else:
+        use_cache = not args.no_cache
+        parallel_cuts = args.parallel_workers > 1
+        fast_audio = False
     
     # Banner
     print("=" * 60)
@@ -163,16 +193,19 @@ Exemplos de uso:
             if not video_path or not audio_path:
                 logger.error("Falha no download!")
                 return 1
-                
-        else:
-            video_path = args.file
-            audio_path = args.file  # Usar o mesmo arquivo
-            
-            if not Path(video_path).exists():
-                logger.error(f"Arquivo não encontrado: {video_path}")
-                return 1
+        # ETAPA 2: Transcrição
+        print("🎤 ETAPA 2: Transcrição")
+        print("-" * 60)
         
-        print(f"✅ Download concluído!")
+        transcriber = AudioTranscriber(
+            model_size=args.model,
+            use_cache=use_cache
+        )
+        transcription = transcriber.transcribe(
+            audio_path,
+            language=args.language,
+            word_timestamps=True
+        )rint(f"✅ Download concluído!")
         print(f"   Vídeo: {video_path}")
         print(f"   Áudio: {audio_path}")
         print()
@@ -213,12 +246,15 @@ Exemplos de uso:
         
         # Análise semântica
         print(f"🔤 Buscando palavras-chave: {', '.join(keywords_climax)}")
-        semantic_moments = analyzer.analyze_semantic(transcription)
-        print(f"   Encontrados: {len(semantic_moments)} momentos semânticos")
-        
         # Análise acústica
         acoustic_moments = []
         if not args.skip_acoustic:
+            print(f"🔊 Analisando picos de volume (>{args.min_volume}dB)...")
+            acoustic_moments = analyzer.analyze_acoustic(
+                audio_path,
+                fast_mode=fast_audio
+            )
+            print(f"   Encontrados: {len(acoustic_moments)} picos acústicos")
             print(f"🔊 Analisando picos de volume (>{args.min_volume}dB)...")
             acoustic_moments = analyzer.analyze_acoustic(audio_path)
             print(f"   Encontrados: {len(acoustic_moments)} picos acústicos")
@@ -248,12 +284,14 @@ Exemplos de uso:
         
         cutter = VideoCutter(output_dir=args.output_dir)
         
-        # Obter informações do vídeo
-        video_info = cutter.get_video_info(video_path)
-        if video_info:
-            print(f"📹 Vídeo original: {video_info['width']}x{video_info['height']} "
-                  f"@ {video_info['fps']:.1f}fps")
-        
+        # Cortar os segmentos
+        output_files = cutter.cut_multiple_segments(
+            input_video=video_path,
+            cut_points=cut_points,
+            prefix="autoclipper",
+            parallel=parallel_cuts,
+            max_workers=args.parallel_workers
+        )
         # Cortar os segmentos
         output_files = cutter.cut_multiple_segments(
             input_video=video_path,
