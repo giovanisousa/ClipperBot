@@ -60,7 +60,15 @@ class AudioTranscriber:
         
         try:
             self.model = WhisperModel(
-                model_size, 
+                model_size,
+                device=device,
+                compute_type=compute_type
+            )
+            logger.info("✓ Modelo carregado com sucesso")
+        except Exception as e:
+            logger.error(f"Erro ao carregar modelo: {e}")
+            raise
+    
     def transcribe(
         self, 
         audio_path: str,
@@ -133,14 +141,6 @@ class AudioTranscriber:
             if self.cache:
                 self.cache.set(audio_path, transcription, self.model_size, language)
             
-            return transcription
-                
-                transcription.append(segment_dict)
-                
-                # Log de progresso
-                logger.debug(f"[{segment.start:.2f}s - {segment.end:.2f}s] {segment.text.strip()}")
-            
-            logger.info(f"Transcrição concluída: {len(transcription)} segmentos")
             return transcription
             
         except Exception as e:

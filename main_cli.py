@@ -193,19 +193,8 @@ Exemplos de uso:
             if not video_path or not audio_path:
                 logger.error("Falha no download!")
                 return 1
-        # ETAPA 2: Transcrição
-        print("🎤 ETAPA 2: Transcrição")
-        print("-" * 60)
-        
-        transcriber = AudioTranscriber(
-            model_size=args.model,
-            use_cache=use_cache
-        )
-        transcription = transcriber.transcribe(
-            audio_path,
-            language=args.language,
-            word_timestamps=True
-        )rint(f"✅ Download concluído!")
+                
+        print(f"✅ Download concluído!")
         print(f"   Vídeo: {video_path}")
         print(f"   Áudio: {audio_path}")
         print()
@@ -214,7 +203,10 @@ Exemplos de uso:
         print("🎤 ETAPA 2: Transcrição")
         print("-" * 60)
         
-        transcriber = AudioTranscriber(model_size=args.model)
+        transcriber = AudioTranscriber(
+            model_size=args.model,
+            use_cache=use_cache
+        )
         transcription = transcriber.transcribe(
             audio_path,
             language=args.language,
@@ -246,6 +238,9 @@ Exemplos de uso:
         
         # Análise semântica
         print(f"🔤 Buscando palavras-chave: {', '.join(keywords_climax)}")
+        semantic_moments = analyzer.analyze_semantic(transcription)
+        print(f"   Encontrados: {len(semantic_moments)} momentos semânticos")
+        
         # Análise acústica
         acoustic_moments = []
         if not args.skip_acoustic:
@@ -254,9 +249,6 @@ Exemplos de uso:
                 audio_path,
                 fast_mode=fast_audio
             )
-            print(f"   Encontrados: {len(acoustic_moments)} picos acústicos")
-            print(f"🔊 Analisando picos de volume (>{args.min_volume}dB)...")
-            acoustic_moments = analyzer.analyze_acoustic(audio_path)
             print(f"   Encontrados: {len(acoustic_moments)} picos acústicos")
         
         # Combinar análises
@@ -291,12 +283,6 @@ Exemplos de uso:
             prefix="autoclipper",
             parallel=parallel_cuts,
             max_workers=args.parallel_workers
-        )
-        # Cortar os segmentos
-        output_files = cutter.cut_multiple_segments(
-            input_video=video_path,
-            cut_points=cut_points,
-            prefix="autoclipper"
         )
         
         print(f"✅ Processamento concluído!")
