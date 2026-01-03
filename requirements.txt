@@ -12,8 +12,11 @@ torch>=2.0.0
 python-dotenv>=1.0.0
 tqdm>=4.66.0
 
+# Branch 02: GUI Dependencies
+customtkinter>=5.2.0
+Pillow>=10.0.0
+
 # Future Dependencies (Commented for now)
-# customtkinter>=5.2.0  # Branch 02: GUI
 # PyQt6>=6.6.0          # Alternative GUI
 # fastapi>=0.109.0      # Branch 04: Backend API
 # pyjwt>=2.8.0          # Branch 04: Auth
