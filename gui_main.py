@@ -18,6 +18,15 @@ import threading
 import json
 from pathlib import Path
 import logging
+import os
+import sys
+from datetime import datetime
+
+# Importar módulos do backend
+from src.downloader import VideoDownloader
+from src.transcriber import AudioTranscriber
+from src.analyzer import ClimaxAnalyzer
+from src.video_cutter import VideoCutter
 
 # Configuração do tema
 ctk.set_appearance_mode("dark")  # "dark" ou "light"
@@ -37,6 +46,7 @@ class ClipperBotGUI:
         # Estado da aplicação
         self.processing = False
         self.keywords_list = []
+        self.output_folder = None
         
         self._create_layout()
         
@@ -543,22 +553,206 @@ class ClipperBotGUI:
     
     def process_video(self):
         """Processa o vídeo (thread separada)"""
-        # TODO: Implementar integração com o backend
-        self.log("Iniciando processamento...")
-        self.update_status("Preparando ambiente...")
+        try:
+            self.log("🎬 Iniciando processamento...")
+            self.update_status("Preparando ambiente...")
+            self.progress_bar.set(0.05)
+            
+            # Obter configurações
+            mode = self.input_mode.get()
+            video_url = self.url_entry.get().strip() if mode == "url" else None
+            video_file = self.file_entry.get().strip() if mode == "file" else None
+            
+            # Preparar palavras-chave e pesos
+            keywords = [item["keyword"] for item in self.keywords_list]
+            keyword_weights = {item["keyword"]: item["weight"] for item in self.keywords_list}
+            
+            model_size = self.model_var.get()
+            max_clips = self.clips_var.get()
+            fast_mode = self.fast_mode.get()
+            safety_margin = self.margin_var.get()
+            
+            self.log(f"📋 Configurações:")
+            self.log(f"   - Palavras-chave: {', '.join(keywords)}")
+            self.log(f"   - Modelo: {model_size}")
+            self.log(f"   - Clipes: {max_clips}")
+            self.log(f"   - Modo rápido: {'Sim' if fast_mode else 'Não'}")
+            self.log(f"   - Margem de segurança: {safety_margin}s")
+            self.log("")
+            
+            # ETAPA 1: Download
+            self.log("📥 ETAPA 1: Download")
+            self.update_status("📥 Baixando vídeo...")
+            self.progress_bar.set(0.1)
+            
+            downloader = VideoDownloader(output_dir="downloads")
+            
+            if video_url:
+                self.log(f"   URL: {video_url}")
+                info = downloader.get_video_info(video_url)
+                if info:
+                    self.log(f"   📹 Título: {info['title']}")
+                    self.log(f"   ⏱️ Duração: {info['duration']}s ({info['duration']/60:.1f} min)")
+                
+                video_path = downloader.download_video(video_url)
+                audio_path = downloader.download_audio(video_url, format='wav')
+            else:
+                self.log(f"   Arquivo: {video_file}")
+                video_path = video_file
+                # Extrair áudio do arquivo local
+                audio_path = downloader.extract_audio(video_file)
+            
+            if not video_path or not audio_path:
+                raise Exception("Falha no download/extração de áudio")
+            
+            self.log(f"   ✅ Vídeo: {Path(video_path).name}")
+            self.log(f"   ✅ Áudio: {Path(audio_path).name}")
+            self.log("")
+            self.progress_bar.set(0.25)
+            
+            # ETAPA 2: Transcrição
+            self.log("🎤 ETAPA 2: Transcrição")
+            self.update_status("🎤 Transcrevendo áudio...")
+            
+            transcriber = AudioTranscriber(
+                model_size=model_size,
+                use_cache=fast_mode
+            )
+            
+            self.log(f"   Usando modelo: {model_size}")
+            if fast_mode:
+                self.log("   ⚡ Cache ativado")
+            
+            transcription = transcriber.transcribe(
+                audio_path,
+                language='pt',
+                word_timestamps=True
+            )
+            
+            if not transcription:
+                raise Exception("Falha na transcrição")
+            
+            self.log(f"   ✅ {len(transcription)} segmentos transcritos")
+            full_text = transcriber.get_full_text(transcription)
+            self.log(f"   ✅ {len(full_text)} caracteres de texto")
+            self.log("")
+            self.progress_bar.set(0.5)
+            
+            # ETAPA 3: Análise de Clímax
+            self.log("🔍 ETAPA 3: Análise de Clímax")
+            self.update_status("🔍 Analisando momentos...")
+            
+            analyzer = ClimaxAnalyzer(
+                keywords_climax=keywords,
+                keyword_weights=keyword_weights,
+                keywords_ignore=['patrocinador', 'inscreva-se', 'anúncio'],
+                min_volume_db=-10.0,
+                cut_duration_min=30,
+                cut_duration_max=90,
+                safety_margin=safety_margin
+            )
+            
+            # Análise semântica
+            self.log(f"   🔤 Buscando palavras-chave...")
+            semantic_moments = analyzer.analyze_semantic(transcription)
+            self.log(f"   ✅ {len(semantic_moments)} momentos semânticos encontrados")
+            
+            # Análise acústica
+            self.log(f"   🔊 Analisando picos de volume...")
+            acoustic_moments = analyzer.analyze_acoustic(audio_path, fast_mode=fast_mode)
+            self.log(f"   ✅ {len(acoustic_moments)} picos acústicos encontrados")
+            
+            # Combinar análises
+            all_moments = analyzer.combine_analyses(semantic_moments, acoustic_moments)
+            self.log(f"   ✅ {len(all_moments)} momentos totais identificados")
+            
+            # Criar pontos de corte
+            cut_points = analyzer.create_cut_points(all_moments)
+            
+            # Limitar número de clipes
+            if len(cut_points) > max_clips:
+                self.log(f"   ⚠️ Limitando para os {max_clips} melhores momentos")
+                cut_points = cut_points[:max_clips]
+            
+            self.log("")
+            self.log("   📋 Pontos de Corte:")
+            for i, cut in enumerate(cut_points, 1):
+                self.log(f"      {i}. [{cut['start']:.1f}s - {cut['end']:.1f}s] ({cut['duration']:.1f}s) - {cut['reason']}")
+            self.log("")
+            self.progress_bar.set(0.7)
+            
+            # ETAPA 4: Corte de Vídeo
+            self.log("✂️ ETAPA 4: Corte de Vídeo")
+            self.update_status("✂️ Gerando clipes...")
+            
+            # Criar pasta de saída com timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = f"output_clips_{timestamp}"
+            
+            cutter = VideoCutter(output_dir=output_dir)
+            
+            self.log(f"   📁 Pasta de saída: {output_dir}")
+            self.log(f"   🎬 Processando {len(cut_points)} clipes...")
+            
+            output_files = cutter.cut_multiple_segments(
+                input_video=video_path,
+                cut_points=cut_points,
+                prefix="clip",
+                parallel=fast_mode,
+                max_workers=3
+            )
+            
+            self.log(f"   ✅ {len(output_files)} clipes gerados!")
+            self.log("")
+            self.progress_bar.set(1.0)
+            
+            # Exibir resultados
+            self.log("" + "="*50)
+            self.log("📊 RESUMO FINAL")
+            self.log("="*50)
+            self.log(f"Clipes gerados: {len(output_files)}")
+            self.log(f"Pasta de saída: {output_dir}")
+            self.log("")
+            self.log("Arquivos:")
+            
+            # Adicionar à lista de resultados
+            self.output_folder = output_dir
+            self.results_listbox.delete(0, tk.END)
+            
+            for i, file_path in enumerate(output_files, 1):
+                file_name = Path(file_path).name
+                size_mb = Path(file_path).stat().st_size / (1024 * 1024)
+                self.log(f"  {i}. {file_name} ({size_mb:.1f} MB)")
+                self.results_listbox.insert(tk.END, f"{i}. {file_name} ({size_mb:.1f} MB)")
+            
+            self.log("")
+            self.log("🎉 Processamento concluído com sucesso!")
+            self.log("" + "="*50)
+            
+            self.update_status(f"✅ {len(output_files)} clipes gerados!")
+            
+            # Mostrar mensagem de sucesso
+            self.window.after(0, lambda: messagebox.showinfo(
+                "Sucesso!",
+                f"{len(output_files)} clipes foram gerados com sucesso!\n\nPasta: {output_dir}"
+            ))
+            
+            # Mudar para aba de resultados
+            self.window.after(0, lambda: self.tabview.set("🎬 Resultados"))
+            
+        except Exception as e:
+            self.log(f"")
+            self.log(f"❌ ERRO: {str(e)}")
+            self.log(f"")
+            self.update_status("❌ Erro no processamento")
+            self.window.after(0, lambda: messagebox.showerror(
+                "Erro",
+                f"Ocorreu um erro durante o processamento:\n\n{str(e)}"
+            ))
         
-        # Placeholder - será implementado na próxima etapa
-        import time
-        for i in range(100):
-            time.sleep(0.05)
-            self.progress_bar.set(i / 100)
-            if i % 20 == 0:
-                self.log(f"Progresso: {i}%")
-        
-        self.log("Processamento concluído!")
-        self.update_status("✅ Processamento concluído!")
-        self.process_btn.configure(state="normal", text="🚀 Processar Vídeo")
-        self.processing = False
+        finally:
+            self.process_btn.configure(state="normal", text="🚀 Processar Vídeo")
+            self.processing = False
     
     def update_status(self, text):
         """Atualiza o status"""
@@ -571,11 +765,55 @@ class ClipperBotGUI:
     
     def open_output_folder(self):
         """Abre a pasta de saída"""
-        messagebox.showinfo("Info", "Funcionalidade em desenvolvimento")
+        if hasattr(self, 'output_folder') and Path(self.output_folder).exists():
+            if sys.platform == 'win32':
+                os.startfile(self.output_folder)
+            elif sys.platform == 'darwin':  # macOS
+                os.system(f'open "{self.output_folder}"')
+            else:  # linux
+                os.system(f'xdg-open "{self.output_folder}"')
+        else:
+            messagebox.showwarning(
+                "Atenção",
+                "Nenhuma pasta de saída encontrada.\nProcesse um vídeo primeiro!"
+            )
     
     def play_selected_clip(self):
         """Reproduz o clipe selecionado"""
-        messagebox.showinfo("Info", "Funcionalidade em desenvolvimento")
+        selection = self.results_listbox.curselection()
+        if not selection:
+            messagebox.showwarning(
+                "Atenção",
+                "Selecione um clipe para reproduzir!"
+            )
+            return
+        
+        if not hasattr(self, 'output_folder'):
+            messagebox.showwarning(
+                "Atenção",
+                "Nenhuma pasta de saída encontrada!"
+            )
+            return
+        
+        # Obter o nome do arquivo da listbox
+        item_text = self.results_listbox.get(selection[0])
+        # Extrair nome do arquivo (formato: "1. clip_001.mp4 (5.2 MB)")
+        filename = item_text.split('. ', 1)[1].rsplit(' (', 1)[0]
+        
+        file_path = Path(self.output_folder) / filename
+        
+        if file_path.exists():
+            if sys.platform == 'win32':
+                os.startfile(file_path)
+            elif sys.platform == 'darwin':  # macOS
+                os.system(f'open "{file_path}"')
+            else:  # linux
+                os.system(f'xdg-open "{file_path}"')
+        else:
+            messagebox.showerror(
+                "Erro",
+                f"Arquivo não encontrado:\n{file_path}"
+            )
     
     def run(self):
         """Inicia a aplicação"""
