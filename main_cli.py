@@ -13,6 +13,7 @@ Este script permite testar o fluxo completo de processamento:
 import argparse
 import logging
 import sys
+import json
 from pathlib import Path
 
 from src.downloader import VideoDownloader
@@ -70,6 +71,17 @@ Exemplos de uso:
         type=str,
         default='patrocinador,inscreva-se,anúncio',
         help='Palavras para ignorar (separadas por vírgula)'
+    )
+    parser.add_argument(
+        '--weights-config',
+        type=str,
+        help='Caminho para arquivo JSON com pesos customizados (ex: examples/custom_weights.json)'
+    )
+    parser.add_argument(
+        '--safety-margin',
+        type=int,
+        default=8,
+        help='Margem de segurança no final dos clipes em segundos (padrão: 8)'
     )
     parser.add_argument(
         '--min-volume',
@@ -228,16 +240,39 @@ Exemplos de uso:
         keywords_climax = [k.strip() for k in args.keywords.split(',')]
         keywords_ignore = [k.strip() for k in args.ignore.split(',')]
         
+        # Carregar pesos customizados se fornecidos
+        keyword_weights = None
+        if args.weights_config:
+            try:
+                with open(args.weights_config, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    keyword_weights = config.get('keyword_weights', {})
+                    
+                    # Aplicar ajustes temporais do arquivo se existirem
+                    temporal_config = config.get('ajustes_temporais', {})
+                    if 'safety_margin' in temporal_config:
+                        args.safety_margin = temporal_config['safety_margin']
+                    
+                    logger.info(f"✅ Configuração carregada: {args.weights_config}")
+                    logger.info(f"   Pesos customizados: {len(keyword_weights)} palavras")
+                    logger.info(f"   Margem de segurança: {args.safety_margin}s")
+            except Exception as e:
+                logger.warning(f"Erro ao carregar configuração: {e}. Usando pesos padrão.")
+        
         analyzer = ClimaxAnalyzer(
             keywords_climax=keywords_climax,
             keywords_ignore=keywords_ignore,
+            keyword_weights=keyword_weights,
             min_volume_db=args.min_volume,
             cut_duration_min=args.min_duration,
-            cut_duration_max=args.max_duration
+            cut_duration_max=args.max_duration,
+            safety_margin=args.safety_margin
         )
         
         # Análise semântica
         print(f"🔤 Buscando palavras-chave: {', '.join(keywords_climax)}")
+        if keyword_weights:
+            print(f"   Com pesos customizados para melhor priorização")
         semantic_moments = analyzer.analyze_semantic(transcription)
         print(f"   Encontrados: {len(semantic_moments)} momentos semânticos")
         

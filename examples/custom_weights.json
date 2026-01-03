@@ -1,0 +1,33 @@
+{
+  "_description": "Configuração de pesos para palavras-chave no ClipperBot",
+  "_usage": "Quanto maior o peso, maior a prioridade da palavra na geração de clipes",
+  
+  "keyword_weights": {
+    "burro": 3.0,
+    "dinheiro": 3.0,
+    "segredo": 3.0,
+    "lula": 3.0,
+    "brasil": 3.0,
+    "milhão": 2.5,
+    "bilhão": 2.5,
+    "importante": 2.5,
+    "incrível": 2.0,
+    "nunca": 2.0,
+    "sempre": 2.0,
+    "prosperar": 2.0,
+    "atenção": 1.0,
+    "olha": 1.0,
+    "veja": 1.0
+  },
+  
+  "ajustes_temporais": {
+    "safety_margin": 8,
+    "pre_roll": 5,
+    "post_roll": 5,
+    "_notes": {
+      "safety_margin": "Margem de segurança adicional no final dos clipes (segundos) - evita cortar frases no meio",
+      "pre_roll": "Segundos antes da palavra-chave (contexto inicial)",
+      "post_roll": "Segundos após a palavra-chave (contexto final)"
+    }
+  }
+}
