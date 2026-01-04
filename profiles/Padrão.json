@@ -1,0 +1,35 @@
+{
+  "name": "Padrão",
+  "description": "Configuração padrão balanceada",
+  "keywords": [
+    {
+      "keyword": "milhão",
+      "weight": 2.5
+    },
+    {
+      "keyword": "segredo",
+      "weight": 3.0
+    },
+    {
+      "keyword": "importante",
+      "weight": 2.5
+    },
+    {
+      "keyword": "incrível",
+      "weight": 2.0
+    },
+    {
+      "keyword": "atenção",
+      "weight": 1.0
+    }
+  ],
+  "settings": {
+    "model_size": "tiny",
+    "min_volume_db": -10.0,
+    "cut_duration_min": 30,
+    "cut_duration_max": 90,
+    "max_clips": 5,
+    "safety_margin": 8,
+    "fast_mode": true
+  }
+}

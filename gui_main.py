@@ -2,6 +2,7 @@
 """
 AutoClipper Bot - Interface Gráfica (GUI)
 Branch 02: Interface moderna com CustomTkinter
+Branch 04: Sistema de Segurança e Licenciamento
 
 Recursos:
 - Download de vídeos do YouTube
@@ -9,6 +10,7 @@ Recursos:
 - Pré-visualização de parâmetros
 - Execução com feedback em tempo real
 - Gerenciamento de clipes gerados
+- Sistema de autenticação e licenciamento
 """
 
 import customtkinter as ctk
@@ -29,6 +31,10 @@ from src.analyzer import ClimaxAnalyzer
 from src.video_cutter import VideoCutter
 from src.profile_manager import ProfileManager
 
+# Branch 04: Módulos de segurança
+from src.login_window import show_login
+from src.auth_client import AuthClient
+
 # Configuração do tema
 ctk.set_appearance_mode("dark")  # "dark" ou "light"
 ctk.set_default_color_theme("blue")  # "blue", "green", "dark-blue"
@@ -39,10 +45,20 @@ logger = logging.getLogger(__name__)
 class ClipperBotGUI:
     """Interface gráfica principal do ClipperBot"""
     
-    def __init__(self):
+    def __init__(self, user_data: dict):
+        """
+        Inicializa interface gráfica
+        
+        Args:
+            user_data: Dados do usuário autenticado (da tela de login)
+        """
         self.window = ctk.CTk()
         self.window.title("🎬 ClipperBot - Cortes Inteligentes")
         self.window.geometry("1200x800")
+        
+        # Branch 04: Dados do usuário autenticado
+        self.user_data = user_data
+        self.auth_client = AuthClient()
         
         # Estado da aplicação
         self.processing = False
@@ -80,7 +96,7 @@ class ClipperBotGUI:
         
         sidebar = ctk.CTkFrame(self.window, width=350, corner_radius=0)
         sidebar.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-        sidebar.grid_rowconfigure(8, weight=1)  # Espaço flexível
+        sidebar.grid_rowconfigure(9, weight=1)  # Espaço flexível (ajustado de 8 para 9)
         
         # Logo/Título
         title = ctk.CTkLabel(
@@ -97,6 +113,9 @@ class ClipperBotGUI:
             text_color="gray"
         )
         subtitle.grid(row=1, column=0, padx=20, pady=(0, 20))
+        
+        # Branch 04: Card de informações do usuário
+        self._create_user_info_card(sidebar)
         
         # Seção 0: Perfis
         self._create_profile_section(sidebar)
@@ -120,14 +139,14 @@ class ClipperBotGUI:
             fg_color="#28a745",
             hover_color="#218838"
         )
-        self.process_btn.grid(row=9, column=0, padx=20, pady=20, sticky="ew")
+        self.process_btn.grid(row=10, column=0, padx=20, pady=20, sticky="ew")  # Ajustado de row=9 para row=10
         
     def _create_video_input_section(self, parent):
         """Seção de entrada de vídeo"""
         
         # Frame de entrada
         input_frame = ctk.CTkFrame(parent)
-        input_frame.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+        input_frame.grid(row=4, column=0, padx=20, pady=10, sticky="ew")  # Ajustado de row=3 para row=4
         
         label = ctk.CTkLabel(
             input_frame,
@@ -183,12 +202,90 @@ class ClipperBotGUI:
             state="disabled"
         )
         self.browse_btn.pack(side="right")
+    
+    def _create_user_info_card(self, parent):
+        """
+        Branch 04: Cria card com informações do usuário autenticado
+        """
+        user_frame = ctk.CTkFrame(parent, fg_color="#1a472a")
+        user_frame.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
+        
+        # Ícone e email
+        header_frame = ctk.CTkFrame(user_frame, fg_color="transparent")
+        header_frame.pack(padx=10, pady=(10, 5), fill="x")
+        
+        ctk.CTkLabel(
+            header_frame,
+            text="✅",
+            font=ctk.CTkFont(size=16)
+        ).pack(side="left", padx=(0, 5))
+        
+        ctk.CTkLabel(
+            header_frame,
+            text=self.user_data.get('email', 'Usuário'),
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="white"
+        ).pack(side="left")
+        
+        # Status da licença
+        status = self.user_data.get('status', 'active')
+        status_text = {
+            'active': '🟢 Ativo',
+            'inactive': '🔴 Inativo',
+            'expired': '⚠️ Expirado'
+        }.get(status, status)
+        
+        ctk.CTkLabel(
+            user_frame,
+            text=status_text,
+            font=ctk.CTkFont(size=11),
+            text_color="lightgreen" if status == 'active' else "orange"
+        ).pack(padx=10, pady=2, anchor="w")
+        
+        # Data de expiração (se houver)
+        expiration = self.user_data.get('expiration_date')
+        if expiration:
+            try:
+                from datetime import datetime
+                exp_date = datetime.fromisoformat(expiration.replace('Z', '+00:00'))
+                days_left = (exp_date - datetime.now()).days
+                
+                exp_text = f"Expira em {days_left} dias" if days_left > 0 else "Expirado"
+                exp_color = "white" if days_left > 7 else "orange"
+                
+                ctk.CTkLabel(
+                    user_frame,
+                    text=f"📅 {exp_text}",
+                    font=ctk.CTkFont(size=10),
+                    text_color=exp_color
+                ).pack(padx=10, pady=(0, 5), anchor="w")
+            except:
+                pass
+        
+        # Botão de logout
+        logout_btn = ctk.CTkButton(
+            user_frame,
+            text="🚪 Sair",
+            command=self._logout,
+            height=25,
+            fg_color="#8b0000",
+            hover_color="#a00000",
+            font=ctk.CTkFont(size=10)
+        )
+        logout_btn.pack(padx=10, pady=(5, 10), fill="x")
+        
+    def _logout(self):
+        """Branch 04: Realiza logout e fecha aplicação"""
+        if messagebox.askyesno("Confirmar Logout", "Deseja realmente sair?"):
+            logger.info("Usuário solicitou logout")
+            self.auth_client.logout()
+            self.window.quit()
         
     def _create_profile_section(self, parent):
         """Seção de seleção e gerenciamento de perfis"""
         
         profile_frame = ctk.CTkFrame(parent)
-        profile_frame.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        profile_frame.grid(row=3, column=0, padx=20, pady=10, sticky="ew")  # Ajustado de row=2 para row=3
         
         label = ctk.CTkLabel(
             profile_frame,
@@ -243,7 +340,7 @@ class ClipperBotGUI:
         """Seção de palavras-chave com pesos"""
         
         keywords_frame = ctk.CTkFrame(parent)
-        keywords_frame.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        keywords_frame.grid(row=5, column=0, padx=20, pady=10, sticky="ew")  # Ajustado de row=4 para row=5
         
         label = ctk.CTkLabel(
             keywords_frame,
@@ -325,7 +422,7 @@ class ClipperBotGUI:
         """Configurações avançadas"""
         
         settings_frame = ctk.CTkFrame(parent)
-        settings_frame.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+        settings_frame.grid(row=6, column=0, padx=20, pady=10, sticky="ew")  # Ajustado de row=5 para row=6
         
         label = ctk.CTkLabel(
             settings_frame,
@@ -1067,5 +1164,24 @@ class ClipperBotGUI:
 
 
 if __name__ == "__main__":
-    app = ClipperBotGUI()
-    app.run()
+    # Configurar logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    
+    # Branch 04: Mostrar tela de login primeiro
+    logger.info("🔐 Iniciando sistema de autenticação...")
+    user_data = show_login()
+    
+    if user_data:
+        # Usuário autenticado com sucesso
+        logger.info(f"✅ Usuário autenticado: {user_data.get('email')}")
+        
+        # Iniciar aplicação principal
+        app = ClipperBotGUI(user_data)
+        app.run()
+    else:
+        # Login cancelado ou falhou
+        logger.info("❌ Login cancelado - encerrando aplicação")
+        sys.exit(0)

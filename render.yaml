@@ -1,0 +1,28 @@
+# Render.com Configuration
+# Deploy automático da API de autenticação
+
+services:
+  # API de Autenticação
+  - type: web
+    name: clipperbot-auth-api
+    env: python
+    region: oregon  # ou ohio, virginia, etc.
+    plan: free  # starter, standard, pro
+    branch: feature/security-licensing
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python -m backend.api"
+    envVars:
+      - key: DATABASE_URL
+        sync: false  # Configurar manualmente no Render
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.12.7
+    
+    # Health check
+    healthCheckPath: /health
+    
+    # Auto-deploy
+    autoDeploy: true
