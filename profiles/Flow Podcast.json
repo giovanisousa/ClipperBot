@@ -1,0 +1,39 @@
+{
+  "name": "Flow Podcast",
+  "description": "Para podcasts longos, foco em momentos reflexivos",
+  "keywords": [
+    {
+      "keyword": "interessante",
+      "weight": 2.0
+    },
+    {
+      "keyword": "nunca",
+      "weight": 2.5
+    },
+    {
+      "keyword": "sempre",
+      "weight": 2.0
+    },
+    {
+      "keyword": "incrível",
+      "weight": 2.5
+    },
+    {
+      "keyword": "polêmico",
+      "weight": 3.0
+    },
+    {
+      "keyword": "pesado",
+      "weight": 2.5
+    }
+  ],
+  "settings": {
+    "model_size": "small",
+    "min_volume_db": -15.0,
+    "cut_duration_min": 45,
+    "cut_duration_max": 90,
+    "max_clips": 5,
+    "safety_margin": 8,
+    "fast_mode": true
+  }
+}

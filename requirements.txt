@@ -16,9 +16,18 @@ tqdm>=4.66.0
 customtkinter>=5.2.0
 Pillow>=10.0.0
 
+# Branch 04: Security & Licensing
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+requests>=2.31.0
+pyjwt>=2.8.0
+python-multipart>=0.0.6
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+python-dotenv>=1.0.0
+
 # Future Dependencies (Commented for now)
 # PyQt6>=6.6.0          # Alternative GUI
-# fastapi>=0.109.0      # Branch 04: Backend API
-# pyjwt>=2.8.0          # Branch 04: Auth
 # opencv-python>=4.9.0  # Branch 05: Face tracking
 # mediapipe>=0.10.9     # Branch 05: Face detection

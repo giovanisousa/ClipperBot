@@ -1,0 +1,43 @@
+{
+  "name": "Pablo Marçal",
+  "description": "Otimizado para conteúdo motivacional e polêmico",
+  "keywords": [
+    {
+      "keyword": "burro",
+      "weight": 3.0
+    },
+    {
+      "keyword": "dinheiro",
+      "weight": 3.0
+    },
+    {
+      "keyword": "milhão",
+      "weight": 3.0
+    },
+    {
+      "keyword": "prosperar",
+      "weight": 2.5
+    },
+    {
+      "keyword": "lula",
+      "weight": 3.0
+    },
+    {
+      "keyword": "brasil",
+      "weight": 2.5
+    },
+    {
+      "keyword": "sucesso",
+      "weight": 2.5
+    }
+  ],
+  "settings": {
+    "model_size": "small",
+    "min_volume_db": -12.0,
+    "cut_duration_min": 30,
+    "cut_duration_max": 60,
+    "max_clips": 7,
+    "safety_margin": 10,
+    "fast_mode": true
+  }
+}

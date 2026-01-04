@@ -1,0 +1,39 @@
+{
+  "name": "Humor",
+  "description": "Captura momentos engraçados e risadas",
+  "keywords": [
+    {
+      "keyword": "kkk",
+      "weight": 3.0
+    },
+    {
+      "keyword": "risada",
+      "weight": 3.0
+    },
+    {
+      "keyword": "engraçado",
+      "weight": 2.5
+    },
+    {
+      "keyword": "hilário",
+      "weight": 2.5
+    },
+    {
+      "keyword": "piada",
+      "weight": 2.0
+    },
+    {
+      "keyword": "meme",
+      "weight": 2.0
+    }
+  ],
+  "settings": {
+    "model_size": "tiny",
+    "min_volume_db": -8.0,
+    "cut_duration_min": 20,
+    "cut_duration_max": 60,
+    "max_clips": 10,
+    "safety_margin": 5,
+    "fast_mode": true
+  }
+}
