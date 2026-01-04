@@ -50,6 +50,9 @@ class ClipperBotGUI:
         
         self._create_layout()
         
+        # Maximizar após criar o layout
+        self.window.state('zoomed')  # Windows
+        
     def _create_layout(self):
         """Cria o layout principal da interface"""
         
