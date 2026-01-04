@@ -27,6 +27,7 @@ from src.downloader import VideoDownloader
 from src.transcriber import AudioTranscriber
 from src.analyzer import ClimaxAnalyzer
 from src.video_cutter import VideoCutter
+from src.profile_manager import ProfileManager
 
 # Configuração do tema
 ctk.set_appearance_mode("dark")  # "dark" ou "light"
@@ -48,7 +49,15 @@ class ClipperBotGUI:
         self.keywords_list = []
         self.output_folder = None
         
+        # Gerenciador de perfis
+        self.profile_manager = ProfileManager()
+        self.profile_manager.create_default_profiles()
+        self.current_profile = None
+        
         self._create_layout()
+        
+        # Carregar último perfil usado
+        self._load_last_profile()
         
         # Maximizar após criar o layout
         self.window.state('zoomed')  # Windows
@@ -89,6 +98,9 @@ class ClipperBotGUI:
         )
         subtitle.grid(row=1, column=0, padx=20, pady=(0, 20))
         
+        # Seção 0: Perfis
+        self._create_profile_section(sidebar)
+        
         # Seção 1: Entrada de Vídeo
         self._create_video_input_section(sidebar)
         
@@ -115,7 +127,7 @@ class ClipperBotGUI:
         
         # Frame de entrada
         input_frame = ctk.CTkFrame(parent)
-        input_frame.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        input_frame.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
         
         label = ctk.CTkLabel(
             input_frame,
@@ -172,11 +184,66 @@ class ClipperBotGUI:
         )
         self.browse_btn.pack(side="right")
         
+    def _create_profile_section(self, parent):
+        """Seção de seleção e gerenciamento de perfis"""
+        
+        profile_frame = ctk.CTkFrame(parent)
+        profile_frame.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        
+        label = ctk.CTkLabel(
+            profile_frame,
+            text="👤 Perfil de Configuração",
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        label.pack(padx=10, pady=(10, 5), anchor="w")
+        
+        # Dropdown de perfis
+        self.profile_var = ctk.StringVar(value="Padrão")
+        self.profile_menu = ctk.CTkOptionMenu(
+            profile_frame,
+            values=self.profile_manager.list_profiles(),
+            variable=self.profile_var,
+            command=self.load_profile
+        )
+        self.profile_menu.pack(padx=10, pady=5, fill="x")
+        
+        # Botões de gerenciamento
+        btn_frame = ctk.CTkFrame(profile_frame, fg_color="transparent")
+        btn_frame.pack(padx=10, pady=5, fill="x")
+        
+        ctk.CTkButton(
+            btn_frame,
+            text="💾 Salvar",
+            command=self.save_current_profile,
+            width=70
+        ).pack(side="left", padx=2)
+        
+        ctk.CTkButton(
+            btn_frame,
+            text="➕ Novo",
+            command=self.create_new_profile,
+            width=70
+        ).pack(side="left", padx=2)
+        
+        ctk.CTkButton(
+            btn_frame,
+            text="📂 Importar",
+            command=self.import_profile,
+            width=70
+        ).pack(side="left", padx=2)
+        
+        ctk.CTkButton(
+            btn_frame,
+            text="📤 Exportar",
+            command=self.export_profile,
+            width=70
+        ).pack(side="left", padx=2)
+    
     def _create_keywords_section(self, parent):
         """Seção de palavras-chave com pesos"""
         
         keywords_frame = ctk.CTkFrame(parent)
-        keywords_frame.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+        keywords_frame.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
         
         label = ctk.CTkLabel(
             keywords_frame,
@@ -258,7 +325,7 @@ class ClipperBotGUI:
         """Configurações avançadas"""
         
         settings_frame = ctk.CTkFrame(parent)
-        settings_frame.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        settings_frame.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
         
         label = ctk.CTkLabel(
             settings_frame,
@@ -817,6 +884,182 @@ class ClipperBotGUI:
                 "Erro",
                 f"Arquivo não encontrado:\n{file_path}"
             )
+    
+    # Métodos de gerenciamento de perfis
+    
+    def load_profile(self, profile_name):
+        """Carrega um perfil e atualiza a interface"""
+        profile_data = self.profile_manager.load_profile(profile_name)
+        if not profile_data:
+            messagebox.showerror("Erro", f"Não foi possível carregar o perfil: {profile_name}")
+            return
+        
+        self.current_profile = profile_name
+        
+        # Carregar palavras-chave
+        self.keywords_list.clear()
+        self.keywords_listbox.delete(0, tk.END)
+        
+        for item in profile_data.get('keywords', []):
+            self.keywords_list.append(item)
+            self.keywords_listbox.insert(
+                tk.END,
+                f"{item['keyword']} (peso: {item['weight']:.1f})"
+            )
+        
+        # Carregar configurações
+        settings = profile_data.get('settings', {})
+        self.model_var.set(settings.get('model_size', 'tiny'))
+        self.clips_var.set(settings.get('max_clips', 5))
+        self.margin_var.set(settings.get('safety_margin', 8))
+        
+        if settings.get('fast_mode', True):
+            self.fast_mode.select()
+        else:
+            self.fast_mode.deselect()
+        
+        # Salvar como último perfil
+        self.profile_manager.save_last_profile(profile_name)
+        
+        self.log(f"✅ Perfil carregado: {profile_name}")
+    
+    def save_current_profile(self):
+        """Salva as configurações atuais no perfil selecionado"""
+        profile_name = self.profile_var.get()
+        
+        if not profile_name:
+            messagebox.showwarning("Atenção", "Selecione um perfil primeiro!")
+            return
+        
+        # Confirmar sobrescrita
+        if profile_name in self.profile_manager.list_profiles():
+            if not messagebox.askyesno(
+                "Confirmar",
+                f"Deseja sobrescrever o perfil '{profile_name}'?"
+            ):
+                return
+        
+        # Montar dados do perfil
+        profile_data = {
+            "name": profile_name,
+            "description": f"Perfil customizado - {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+            "keywords": self.keywords_list.copy(),
+            "settings": {
+                "model_size": self.model_var.get(),
+                "min_volume_db": -10.0,
+                "cut_duration_min": 30,
+                "cut_duration_max": 90,
+                "max_clips": self.clips_var.get(),
+                "safety_margin": self.margin_var.get(),
+                "fast_mode": self.fast_mode.get()
+            }
+        }
+        
+        if self.profile_manager.save_profile(profile_name, profile_data):
+            messagebox.showinfo("Sucesso", f"Perfil '{profile_name}' salvo com sucesso!")
+            self.log(f"💾 Perfil salvo: {profile_name}")
+        else:
+            messagebox.showerror("Erro", f"Não foi possível salvar o perfil: {profile_name}")
+    
+    def create_new_profile(self):
+        """Cria um novo perfil"""
+        # Dialog para nome do perfil
+        dialog = ctk.CTkInputDialog(
+            text="Digite o nome do novo perfil:",
+            title="Novo Perfil"
+        )
+        profile_name = dialog.get_input()
+        
+        if not profile_name:
+            return
+        
+        # Verificar se já existe
+        if profile_name in self.profile_manager.list_profiles():
+            messagebox.showwarning(
+                "Atenção",
+                f"Já existe um perfil com o nome '{profile_name}'!"
+            )
+            return
+        
+        # Criar perfil com configurações atuais
+        profile_data = {
+            "name": profile_name,
+            "description": f"Perfil criado em {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+            "keywords": self.keywords_list.copy(),
+            "settings": {
+                "model_size": self.model_var.get(),
+                "min_volume_db": -10.0,
+                "cut_duration_min": 30,
+                "cut_duration_max": 90,
+                "max_clips": self.clips_var.get(),
+                "safety_margin": self.margin_var.get(),
+                "fast_mode": self.fast_mode.get()
+            }
+        }
+        
+        if self.profile_manager.save_profile(profile_name, profile_data):
+            # Atualizar lista de perfis
+            self.profile_menu.configure(values=self.profile_manager.list_profiles())
+            self.profile_var.set(profile_name)
+            messagebox.showinfo("Sucesso", f"Perfil '{profile_name}' criado com sucesso!")
+            self.log(f"➕ Novo perfil criado: {profile_name}")
+        else:
+            messagebox.showerror("Erro", "Não foi possível criar o perfil")
+    
+    def import_profile(self):
+        """Importa um perfil de um arquivo JSON"""
+        filename = filedialog.askopenfilename(
+            title="Importar Perfil",
+            filetypes=[("JSON", "*.json"), ("Todos os arquivos", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        profile_name = self.profile_manager.import_profile(filename)
+        if profile_name:
+            # Atualizar lista de perfis
+            self.profile_menu.configure(values=self.profile_manager.list_profiles())
+            self.profile_var.set(profile_name)
+            self.load_profile(profile_name)
+            messagebox.showinfo("Sucesso", f"Perfil '{profile_name}' importado com sucesso!")
+            self.log(f"📂 Perfil importado: {profile_name}")
+        else:
+            messagebox.showerror("Erro", "Não foi possível importar o perfil")
+    
+    def export_profile(self):
+        """Exporta o perfil atual para um arquivo JSON"""
+        profile_name = self.profile_var.get()
+        
+        if not profile_name:
+            messagebox.showwarning("Atenção", "Selecione um perfil primeiro!")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            title="Exportar Perfil",
+            defaultextension=".json",
+            initialfile=f"{profile_name}.json",
+            filetypes=[("JSON", "*.json"), ("Todos os arquivos", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        if self.profile_manager.export_profile(profile_name, filename):
+            messagebox.showinfo("Sucesso", f"Perfil exportado para:\n{filename}")
+            self.log(f"📤 Perfil exportado: {profile_name}")
+        else:
+            messagebox.showerror("Erro", "Não foi possível exportar o perfil")
+    
+    def _load_last_profile(self):
+        """Carrega o último perfil usado"""
+        last_profile = self.profile_manager.get_last_profile()
+        if last_profile and last_profile in self.profile_manager.list_profiles():
+            self.profile_var.set(last_profile)
+            self.load_profile(last_profile)
+        else:
+            # Carregar perfil padrão
+            self.load_profile("Padrão")
     
     def run(self):
         """Inicia a aplicação"""
